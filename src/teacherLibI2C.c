@@ -3,6 +3,7 @@
 #include "em_i2c.h"
 #include "em_gpio.h"
 #include "em_cmu.h"
+#include "teacherLibI2C.h"
 
 static uint8_t device_addr;
 

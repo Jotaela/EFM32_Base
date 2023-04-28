@@ -31,6 +31,8 @@
 
 #include "sleep.h"
 
+#include "myLibI2C.h"
+
 #define STACK_SIZE_FOR_TASK    (configMINIMAL_STACK_SIZE + 10)
 #define TASK_PRIORITY          (tskIDLE_PRIORITY + 1)
 
@@ -41,6 +43,11 @@ typedef struct {
   /* Number of led */
   int          ledNo;
 } TaskParams_t;
+
+typedef struct {
+  uint8_t address;
+  uint8_t reg;
+} TaskPulga_t;
 
 /***************************************************************************//**
  * @brief Simple task which is blinking led
@@ -55,6 +62,18 @@ static void LedBlink(void *pParameters)
     BSP_LedToggle(pData->ledNo);
     vTaskDelay(delay);
   }
+}
+
+static void ProvaLaPulga(void *pParameters)
+{
+  TaskPulga_t * pdata = (TaskPulga_t*) pParameters;
+  uint8_t reg = pdata->reg;
+  uint8_t address = pdata->address;
+  address = (address << 1);
+  uint8_t value;
+  init(address);
+  sensorReadRegister(reg, &value);
+  printf("El resultat és: %d \n", value);
 }
 
 /***************************************************************************//**
@@ -80,13 +99,22 @@ int main(void)
   SLEEP_SleepBlockBegin((SLEEP_EnergyMode_t)(configSLEEP_MODE + 1));
 #endif
 
+
+  static TaskPulga_t paramsPulga = {0x39, 0x92};
+
+  /*Create Prova la Pulga task*/
+  xTaskCreate(ProvaLaPulga, (const char *) "LaPulga", STACK_SIZE_FOR_TASK, &paramsPulga, TASK_PRIORITY, NULL);
+
   /* Parameters value for taks*/
-  static TaskParams_t parametersToTask1 = { pdMS_TO_TICKS(1000), 0 };
-  static TaskParams_t parametersToTask2 = { pdMS_TO_TICKS(500), 1 };
+    static TaskParams_t parametersToTask1 = { pdMS_TO_TICKS(1000), 0 };
+    static TaskParams_t parametersToTask2 = { pdMS_TO_TICKS(500), 1 };
+
 
   /*Create two task for blinking leds*/
   xTaskCreate(LedBlink, (const char *) "LedBlink1", STACK_SIZE_FOR_TASK, &parametersToTask1, TASK_PRIORITY, NULL);
   xTaskCreate(LedBlink, (const char *) "LedBlink2", STACK_SIZE_FOR_TASK, &parametersToTask2, TASK_PRIORITY, NULL);
+
+
 
   /*Start FreeRTOS Scheduler*/
   vTaskStartScheduler();

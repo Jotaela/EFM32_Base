@@ -1,4 +1,5 @@
-#include "teacherLibI2C.c"
+#include <stdbool.h>
+#include <stdint.h>
 
 void BSP_I2C_Init(uint8_t addr);
 bool I2C_WriteRegister(uint8_t reg, uint8_t data);

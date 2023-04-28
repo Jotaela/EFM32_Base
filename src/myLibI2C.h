@@ -1,6 +1,6 @@
-#include "myLibI2C.c"
+#include <stdint.h>
 
 int init(uint8_t address);
-int sensorWriteRegister();
-int sensorWriteRegister();
+int sensorWriteRegister(uint8_t reg, uint8_t data);
+int sensorReadRegister(uint8_t reg, uint8_t *val);
 

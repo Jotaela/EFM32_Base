@@ -36,6 +36,10 @@
 #define STACK_SIZE_FOR_TASK    (configMINIMAL_STACK_SIZE + 10)
 #define TASK_PRIORITY          (tskIDLE_PRIORITY + 1)
 
+/*Global variables*/
+QueueHandle_t xQueue;
+QueueHandle_t xQueueInitProximity;
+
 /* Structure with parameters for LedBlink */
 typedef struct {
   /* Delay between blink of led */
@@ -64,6 +68,11 @@ typedef struct {
   uint8_t reg_3;
 } ScanProximitySensorParameters;
 
+typedef struct {
+    char ucMessageID;
+    char ucData[ 20 ];
+}AMessage;
+
 /***************************************************************************//**
  * @brief Simple task which is blinking led
  * @param *pParameters pointer to parameters passed to the function
@@ -86,12 +95,24 @@ static void InitI2C(void *pParameters)
   uint8_t address = pdata->address;
   address = (address << 1);
   uint8_t value;
-  init(address);
+  AMessage ulVar;
+
+  int initVal = init(address);
+  if (initVal == 0){
+	  strcpy(&ulVar.ucData, "Ha funcionat");
+	  ulVar.ucMessageID = '0';
+  } else{
+	  strcpy(&ulVar.ucData, "No ha funcionat");
+	  ulVar.ucMessageID = '0';
+  }
+  xQueueSend( xQueue, ( void * ) &ulVar, ( TickType_t ) 0 );
   sensorReadRegister(reg, &value);
 }
 
 static void InitProximitySensor(void *pParameters)
 {
+	AMessage RdMessage;
+	xQueueReceive( xQueue, &RdMessage, ( TickType_t ) 10 );
 	InitProximitySensorParameters * pdata = (InitProximitySensorParameters*) pParameters;
 
 	uint8_t reg1 = pdata->reg_1;
@@ -108,17 +129,24 @@ static void InitProximitySensor(void *pParameters)
   uint8_t data4 = 1;
   // Write on Registers
   sensorWriteRegister(reg1, data1);
-  sensorWriteRegister(reg1, data2);
-  sensorWriteRegister(reg1, data3);
-  sensorWriteRegister(reg1, data4);
+  sensorWriteRegister(reg2, data2);
+  sensorWriteRegister(reg3, data3);
+  sensorWriteRegister(reg4, data4);
+
+  AMessage ulVar;
+  strcpy(&ulVar.ucData, "Ha funcionat");
+  ulVar.ucMessageID = '0';
+  xQueueSend( xQueueInitProximity, ( void * ) &ulVar, ( TickType_t ) 0 );
 
 }
 
 static void ScanProximitySensor(void *pParameters)
 {
+	AMessage ulVar;
+	xQueueReceive( xQueueInitProximity, &ulVar, portMAX_DELAY);
 	ScanProximitySensorParameters * pdata = (ScanProximitySensorParameters*) pParameters;
 
-	uint8_t reg1 = pdata->reg_1; //0x80
+	uint8_t reg1 = pdata->reg_1; // 0x80
 	uint8_t reg2 = pdata->reg_2; // 0x93 - PVALID
 	uint8_t reg3 = pdata->reg_3; // 0x9C - PDATA
 	uint8_t data1 =  (1 << 2);
@@ -128,17 +156,20 @@ static void ScanProximitySensor(void *pParameters)
 	uint8_t value3;
 
 	// Turn Proximity Sensor ON
-
 	sensorWriteRegister(reg1, data1);
-	while(1)
+	/*while(1)
 	{
 		// READING PVALID
 		sensorReadRegister(reg2, &value2);
-		if (value2 & 1)
+		if ((value2 & (1 << 1)) == (1 << 1))
 			break;
 	}
+*/
 	// READING PDATA
-	sensorReadRegister(reg3, &value3);
+	while (1)
+	{
+		sensorReadRegister(reg3, &value3);
+	}
 }
 /***************************************************************************//**
  * @brief  Main function
@@ -156,6 +187,9 @@ int main(void)
   BSP_LedSet(0);
   BSP_LedSet(1);
 
+  /* Create Queue*/
+  xQueue = xQueueCreate( 3, sizeof(AMessage) );
+  xQueueInitProximity = xQueueCreate( 1, sizeof(AMessage) );
   /* Initialize SLEEP driver, no calbacks are used */
   SLEEP_Init(NULL, NULL);
 #if (configSLEEP_MODE < 3)
@@ -168,13 +202,25 @@ int main(void)
   static InitProximitySensorParameters paramsInitProximitySensor = {0x80, 0x89, 0x8B, 0x8C};
   static ScanProximitySensorParameters paramsScanProximitySensor = {0x80, 0x93, 0x9C};
 
-  /*Create Prova la Pulga task*/
+  /*Init I2C Task*/
   xTaskCreate(InitI2C, (const char *) "InitI2C", STACK_SIZE_FOR_TASK, &paramsInitI2C, TASK_PRIORITY, NULL);
-  // INIT TASK
-  xTaskCreate(InitProximitySensor, (const char *) "InitProximitySensor", STACK_SIZE_FOR_TASK, &paramsInitProximitySensor, TASK_PRIORITY, NULL);
+  //--------------------------------------------------
+
+  // INIT Sensor Task
+  xTaskCreate(InitProximitySensor, (const char *) "InitProximitySensor", STACK_SIZE_FOR_TASK * 3, &paramsInitProximitySensor, TASK_PRIORITY, NULL);
+  //--------------------------------------------------
+
   // READ TASK
   xTaskCreate(ScanProximitySensor, (const char *) "InitProximitySensor", STACK_SIZE_FOR_TASK, &paramsScanProximitySensor, TASK_PRIORITY, NULL);
+  //--------------------------------------------------
 
+  // PROCESS DATA TASK
+
+  //--------------------------------------------------
+
+  // INTERPRET DATA TASK
+
+  //--------------------------------------------------
   /* Parameters value for taks*/
     static TaskParams_t parametersToTask1 = { pdMS_TO_TICKS(1000), 0 };
     static TaskParams_t parametersToTask2 = { pdMS_TO_TICKS(500), 1 };

@@ -24,21 +24,33 @@ bool initialize()
     /* Initialize I2C */
 
 
+    //sensorWriteRegister(APDS9960_CONTROL, AGAIN_4X);
 
-
-
+    //sensorWriteRegister(APDS9960_GPULSE, 9);
     /* Set ENABLE register to 0 (disable all features) */
+
     setMode(ALL, OFF);
+    setADCIntegrationTime(9600);
+    sensorWriteRegister(APDS9960_ENABLE, 0);
+    for(int i = 0; i < 10; i++)
+	{}
+	sensorWriteRegister(APDS9960_ENABLE, 1);
+	for(int i = 0; i < 10; i++)
+	{}
+
+
     /* Set default values for ambient light and proximity registers */
-    sensorWriteRegister(APDS9960_ATIME, DEFAULT_ATIME);
-    sensorWriteRegister(APDS9960_WTIME, DEFAULT_WTIME);
-    sensorWriteRegister(APDS9960_PPULSE, DEFAULT_PROX_PPULSE);
-    sensorWriteRegister(APDS9960_POFFSET_UR, DEFAULT_POFFSET_UR) ;
-    sensorWriteRegister(APDS9960_POFFSET_DL, DEFAULT_POFFSET_DL) ;
-    sensorWriteRegister(APDS9960_CONFIG1, DEFAULT_CONFIG1) ;
-    setLEDDrive(DEFAULT_LDRIVE);
+    //sensorWriteRegister(APDS9960_ATIME, DEFAULT_ATIME);
+    //sensorWriteRegister(APDS9960_WTIME, DEFAULT_WTIME);
+    //sensorWriteRegister(APDS9960_PPULSE, DEFAULT_PROX_PPULSE);
+    //sensorWriteRegister(APDS9960_POFFSET_UR, DEFAULT_POFFSET_UR) ;
+    //sensorWriteRegister(APDS9960_POFFSET_DL, DEFAULT_POFFSET_DL) ;
+    //sensorWriteRegister(APDS9960_CONFIG1, DEFAULT_CONFIG1) ;
+    //setLEDDrive(DEFAULT_LDRIVE);
     setProximityGain(DEFAULT_PGAIN);
     setAmbientLightGain(DEFAULT_AGAIN);
+
+
     if( !setProxIntLowThresh(DEFAULT_PILT) ) {
 
         return false;
@@ -107,7 +119,26 @@ bool initialize()
         return false;
     }
 
+
+
     return true;
+}
+
+
+void setADCIntegrationTime(uint16_t iTimeMS) {
+  float temp;
+
+  // convert ms into 2.78ms increments
+  temp = iTimeMS;
+  temp /= 2.78;
+  temp = 256 - temp;
+  if (temp > 255)
+    temp = 255;
+  if (temp < 0)
+    temp = 0;
+
+  /* Update the timing register */
+  sensorWriteRegister(APDS9960_ATIME, (uint8_t)temp);
 }
 
 /*Enables or disables a feature in the APDS-9960*/

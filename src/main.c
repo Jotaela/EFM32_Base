@@ -24,6 +24,7 @@
 #include "queue.h"
 #include "semphr.h"
 #include "croutine.h"
+#include "APDS9960.h"
 
 #include "em_chip.h"
 #include "bsp.h"
@@ -119,33 +120,16 @@ static int InitI2C(void *pParameters)
 
 static void InitProximitySensor(void *pParameters)
 {
-	initialize();
 	AMessage RdMessage;
+
+	initialize();
+	setMode(PROXIMITY, ON);
 	xQueueReceive( xQueue, &RdMessage, ( TickType_t ) 10 );
-	InitProximitySensorParameters * pdata = (InitProximitySensorParameters*) pParameters;
 
-	uint8_t reg1 = pdata->reg_1;
-  uint8_t reg2 = pdata->reg_2;
-  uint8_t reg3 = pdata->reg_3;
-  uint8_t reg4 = pdata->reg_4;
-  // Turn Interrupts ON | ON Sensor
-  uint8_t data1 =  /*(1 << 5) |*/ 1;
-  // SET MIN THRESHOLD
-  uint8_t data2 = 96;
-  // SET MAX THRESHOLD
-  uint8_t data3 = 144;
-  // SET REPETITIONS TO 1 (PPERS)
-  uint8_t data4 = 1;
-  // Write on Registers
-  sensorWriteRegister(reg1, data1);
-  sensorWriteRegister(reg2, data2);
-  sensorWriteRegister(reg3, data3);
-  sensorWriteRegister(reg4, data4);
-
-  AMessage ulVar;
-  strcpy(&ulVar.ucMessage, "Ha funcionat");
-  ulVar.ucMessageID = '0';
-  xQueueSend( xQueueScanProximity, ( void * ) &ulVar, ( TickType_t ) 0 );
+	AMessage ulVar;
+	strcpy(&ulVar.ucMessage, "Ha funcionat");
+	ulVar.ucMessageID = '0';
+	xQueueSend( xQueueScanProximity, ( void * ) &ulVar, ( TickType_t ) 0 );
 
 }
 
@@ -153,21 +137,16 @@ static void ScanProximitySensor(void *pParameters)
 {
 	AMessage ulVar;
 	xQueueReceive( xQueueScanProximity, &ulVar, portMAX_DELAY);
-	//ScanProximitySensorParameters * pdata = (ScanProximitySensorParameters*) pParameters;
+	ScanProximitySensorParameters * pdata = (ScanProximitySensorParameters*) pParameters;
 	while(1)
 	{
-		/*
-		uint8_t reg1 = pdata->reg_1; // 0x80
 		uint8_t reg2 = pdata->reg_2; // 0x93 - PVALID
 		uint8_t reg3 = pdata->reg_3; // 0x9C - PDATA
-		uint8_t data1 =  (1 << 2);
 
 		// VALUES WE READ
 		uint8_t value2;
 		uint8_t value3;
 
-		// Turn Proximity Sensor ON
-		sensorWriteRegister(reg1, data1);
 		while(1)
 		{
 			// READING PVALID
@@ -176,13 +155,10 @@ static void ScanProximitySensor(void *pParameters)
 				break;
 		}
 		// READING PDATA
-		while (1)
-		{
-			sensorReadRegister(reg3, &value3);
-		}
-		*/
+		sensorReadRegister(reg3, &value3);
+
 		strcpy(&ulVar.ucMessage, "Distance in mm");
-		ulVar.ucVal = 5;
+		ulVar.ucVal = value3;
 		ulVar.ucMessageID = '1';
 		xQueueSend( xQueueProcessProximity, &ulVar, portMAX_DELAY);
 	}
@@ -197,8 +173,7 @@ static void ProcessProximitySensor()
 	{
 		xQueueReceive( xQueueProcessProximity, &ulVar, portMAX_DELAY);
 
-		//printf("%d", ulVar.ucMessage, distanciaMm);
-		returnMessage.ucVal = (ulVar.ucVal < 10);
+		returnMessage.ucVal = (ulVar.ucVal >= 255);
 		strcpy(&returnMessage.ucMessage, "Stop value");
 		returnMessage.ucMessageID = '2';
 
@@ -214,7 +189,7 @@ static void ProximitySensorActuator()
 	while(1)
 	{
 		xQueueReceive( xQueueActuatorProximity, &ulVar, portMAX_DELAY);
-		if(ulVar.ucVal == 1)
+		if(ulVar.ucVal != 1)
 		{
 			BSP_LedSet(1);
 		}

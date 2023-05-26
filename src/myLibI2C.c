@@ -23,10 +23,10 @@ int sensorWriteRegister(uint8_t reg, uint8_t data) {
 	{
 		I2C_WriteRegister(reg, data);
 		if (xSemaphoreGive(semphore) != pdTRUE)
-			return 1;
-		return 0;
+			return 0;
+		return 1;
 	}
-	return 1;
+	return 0;
 }
 
 int sensorReadRegister(uint8_t reg, uint8_t *val) {
